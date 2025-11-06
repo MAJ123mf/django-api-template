@@ -1,0 +1,119 @@
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.19kB done
+#1 DONE 0.0s
+
+#2 [postgis internal] load build definition from Dockerfile
+#2 transferring dockerfile: 707B done
+#2 DONE 0.2s
+
+#3 [djangoapi internal] load build definition from Dockerfile
+#3 transferring dockerfile: 1.98kB done
+#3 DONE 0.3s
+
+#4 [postgis internal] load metadata for docker.io/postgis/postgis:16-3.4
+#4 ...
+
+#5 [djangoapi internal] load metadata for docker.io/library/python:3.12-alpine3.21
+#5 DONE 0.0s
+
+#6 [djangoapi internal] load .dockerignore
+#6 transferring context: 2B done
+#6 DONE 0.2s
+
+#7 [djangoapi  1/10] FROM docker.io/library/python:3.12-alpine3.21
+#7 DONE 0.0s
+
+#8 [djangoapi  2/10] RUN addgroup -g 1000 joamona &&     adduser -D -u 1000 -G joamona joamona
+#8 CACHED
+
+#9 [djangoapi  3/10] WORKDIR /home/joamona
+#9 CACHED
+
+#10 [djangoapi  4/10] RUN echo "http://dl-cdn.alpinelinux.org/alpine/v3.21/main" > /etc/apk/repositories &&     echo "http://dl-cdn.alpinelinux.org/alpine/v3.21/community" >> /etc/apk/repositories
+#10 CACHED
+
+#11 [djangoapi internal] load build context
+#11 transferring context: 611.25kB 0.2s done
+#11 DONE 0.7s
+
+#12 [djangoapi  5/10] RUN apk update && apk add --no-cache     postgresql-dev g++ gcc musl-dev libpq-dev wget pango gdal gdal-dev gdal-driver-all postgresql-client geos geos-dev proj-dev libffi-dev python3-dev
+#12 ...
+
+#4 [postgis internal] load metadata for docker.io/postgis/postgis:16-3.4
+#4 DONE 1.5s
+
+#13 [postgis internal] load .dockerignore
+#13 transferring context: 2B done
+#13 DONE 0.2s
+
+#12 [djangoapi  5/10] RUN apk update && apk add --no-cache     postgresql-dev g++ gcc musl-dev libpq-dev wget pango gdal gdal-dev gdal-driver-all postgresql-client geos geos-dev proj-dev libffi-dev python3-dev
+#12 ...
+
+#14 [postgis 1/6] FROM docker.io/postgis/postgis:16-3.4@sha256:44126d872ac91993766c341e369c539e8196614321765d36a6f1bab0419a5fa5
+#14 DONE 0.0s
+
+#15 [postgis internal] load build context
+#15 transferring context: 100B done
+#15 DONE 0.2s
+
+#12 [djangoapi  5/10] RUN apk update && apk add --no-cache     postgresql-dev g++ gcc musl-dev libpq-dev wget pango gdal gdal-dev gdal-driver-all postgresql-client geos geos-dev proj-dev libffi-dev python3-dev
+#12 1.592 fetch http://dl-cdn.alpinelinux.org/alpine/v3.21/main/x86_64/APKINDEX.tar.gz
+#12 ...
+
+#16 [postgis 2/6] WORKDIR /usr/local/app
+#16 CACHED
+
+#17 [postgis 3/6] COPY ./init-users.sql .
+#17 CACHED
+
+#18 [postgis 4/6] COPY ./disati.backup .
+#18 CACHED
+
+#19 [postgis 5/6] COPY ./init-db.sh /docker-entrypoint-initdb.d/init-db.sh
+#19 CACHED
+
+#20 [postgis 6/6] RUN chmod +x /docker-entrypoint-initdb.d/init-db.sh
+#20 CACHED
+
+#21 [postgis] exporting to image
+#21 exporting layers done
+#21 writing image sha256:db46aa49ac31b76feae82a1fce034f6220b1f33da007489feacd621780394675 0.0s done
+#21 naming to docker.io/library/django-api-template-postgis 0.0s done
+#21 DONE 0.2s
+
+#12 [djangoapi  5/10] RUN apk update && apk add --no-cache     postgresql-dev g++ gcc musl-dev libpq-dev wget pango gdal gdal-dev gdal-driver-all postgresql-client geos geos-dev proj-dev libffi-dev python3-dev
+#12 ...
+
+#22 [postgis] resolving provenance for metadata file
+#22 DONE 0.0s
+
+#12 [djangoapi  5/10] RUN apk update && apk add --no-cache     postgresql-dev g++ gcc musl-dev libpq-dev wget pango gdal gdal-dev gdal-driver-all postgresql-client geos geos-dev proj-dev libffi-dev python3-dev
+#12 61.68 fetch http://dl-cdn.alpinelinux.org/alpine/v3.21/community/x86_64/APKINDEX.tar.gz
+#12 61.68 WARNING: updating and opening http://dl-cdn.alpinelinux.org/alpine/v3.21/main: IO ERROR
+#12 121.7 WARNING: updating and opening http://dl-cdn.alpinelinux.org/alpine/v3.21/community: IO ERROR
+#12 121.7 4 unavailable, 0 stale; 37 distinct packages available
+#12 ERROR: process "/bin/sh -c apk update && apk add --no-cache     postgresql-dev g++ gcc musl-dev libpq-dev wget pango gdal gdal-dev gdal-driver-all postgresql-client geos geos-dev proj-dev libffi-dev python3-dev" did not complete successfully: exit code: 4
+------
+ > [djangoapi  5/10] RUN apk update && apk add --no-cache     postgresql-dev g++ gcc musl-dev libpq-dev wget pango gdal gdal-dev gdal-driver-all postgresql-client geos geos-dev proj-dev libffi-dev python3-dev:
+1.592 fetch http://dl-cdn.alpinelinux.org/alpine/v3.21/main/x86_64/APKINDEX.tar.gz
+61.68 fetch http://dl-cdn.alpinelinux.org/alpine/v3.21/community/x86_64/APKINDEX.tar.gz
+61.68 WARNING: updating and opening http://dl-cdn.alpinelinux.org/alpine/v3.21/main: IO ERROR
+121.7 WARNING: updating and opening http://dl-cdn.alpinelinux.org/alpine/v3.21/community: IO ERROR
+121.7 4 unavailable, 0 stale; 37 distinct packages available
+------
+Dockerfile:34
+
+--------------------
+
+  33 |     #   echo "http://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories && \
+
+  34 | >>> RUN apk update && apk add --no-cache \
+
+  35 | >>>     postgresql-dev g++ gcc musl-dev libpq-dev wget pango gdal gdal-dev gdal-driver-all postgresql-client geos geos-dev proj-dev libffi-dev python3-dev 
+
+  36 |     RUN apk add --update --no-cache --virtual .tmp-build-deps libc-dev linux-headers 
+
+--------------------
+
+target djangoapi: failed to solve: process "/bin/sh -c apk update && apk add --no-cache     postgresql-dev g++ gcc musl-dev libpq-dev wget pango gdal gdal-dev gdal-driver-all postgresql-client geos geos-dev proj-dev libffi-dev python3-dev" did not complete successfully: exit code: 4
+

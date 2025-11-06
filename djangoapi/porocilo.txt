@@ -1,0 +1,4 @@
+PING dl-cdn.alpinelinux.org (199.232.18.132): 56 data bytes
+
+--- dl-cdn.alpinelinux.org ping statistics ---
+3 packets transmitted, 0 packets received, 100% packet loss

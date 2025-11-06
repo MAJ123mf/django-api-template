@@ -56,5 +56,6 @@ urlpatterns = [
     path('smartcities/', include('smartcities.urls')),
     path('parcels/', include('parcels.urls')),
     path('roads/', include('roads.urls')),
-    path('addresses/', include('addresses.urls'))
+    path('addresses/', include('addresses.urls')),
+    path("export/", include("export.urls"))
 ]

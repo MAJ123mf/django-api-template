@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     'parcels',
     'addresses',
     'roads',
+    'export',
     ]
 
 MIDDLEWARE = [
@@ -121,8 +122,8 @@ DATABASES = {
         'NAME': os.getenv('POSTGRES_DB'),
         'USER': os.getenv('POSTGRES_USER'),
         'PASSWORD': os.getenv('POSTGRES_PASSWORD'),
-        'HOST': os.getenv('POSTGRES_HOST'),
-        'PORT': os.getenv('POSTGRES_PORT'),
+        'HOST': os.getenv('POSTGRES_HOST', '10.32.52.147'),
+        'PORT': os.getenv('POSTGRES_PORT', '5440'),
         'OPTIONS': {
             'options': '-c search_path=public',
         }
