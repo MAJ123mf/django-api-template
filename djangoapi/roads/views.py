@@ -5,6 +5,7 @@ from django.contrib.auth import logout
 from django.shortcuts import redirect
 from django.forms.models import model_to_dict
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import Q
 
 #Geoss
 from django.contrib.gis.geos import GEOSGeometry
@@ -114,13 +115,14 @@ class RoadsView(BaseDjangoView):
         # After the road has been inserted:
         #     - snap it to grid
         #     - Check if the geometry is valid
-        #     - Check if the interior intersects with other geometry
+        #     - Check if the road overlaps or crosses with other roads
+        #       (touching at endpoints/nodes is allowed - normal for road networks)
         #     - If any check fails, remove the row.
         #     - The only inconvenient is the id counter sums one more
         
         originalWkt=request.POST.get('geom', None)   # preverimo ali imamo geometrijo v POST zahtevi
         if originalWkt is None:                      # če nimamo geometrije, se spremenljivka originalWkt nastavi na None, in vrnemo napako
-            return JsonResponse({'ok':False, 'message': 'The geometry is mandartory', 'data':[], 'post_data': dict(request.POST) },  status=400)
+            return JsonResponse({'ok':False, 'message': 'The geometry is mandatory', 'data':[], 'post_data': dict(request.POST) },  status=400)
         
         #Creates the geometry
         g=GEOSGeometry(request.POST.get('geom',''), srid=EPSG_FOR_GEOMETRIES)   # EPSG 25830 zamenjan z WGS84 4326
@@ -141,7 +143,7 @@ class RoadsView(BaseDjangoView):
         #Now we get a new object with the new geometry to perform the checks
         r=Roads.objects.get(id=r.id)           # ponovno preberemo objekt Roads iz baze, da dobimo novo geometrijo
         print('Snapped geometry',r.geom.wkt)       # pretvori geometrijo v WKT format in jo izpiše
-        #bGeos=GEOSGeometry(b.geom.wkt, srid=25830)
+    
         #valid=bGeos.valid
         #b.geom is a GEOSGeometry object, so we can use it directly
         valid=r.geom.valid
@@ -151,9 +153,22 @@ class RoadsView(BaseDjangoView):
             r.delete()
             return JsonResponse({'ok':False, 'message': 'The Road geometry is not valid after the st_SnapToGrid', 'data':[]}, status=400)   
 
-        #create a filter to get all the geometries which interiors intersects,
-        #but excluding the one just created
-        filt=Roads.objects.filter(geom__relate=(g.wkt,'T********')).exclude(id=r.id)   # te filtre že poznamo iz prejšnjih vaj
+        # POPRAVEK: Preverjanje prekrivanja in križanja cest
+        # Za cestno omrežje je normalno, da se ceste dotikajo v vozliščih (končne točke),
+        # vendar NE smejo:
+        #   - Overlaps (si deliti segmente - 1*T***T**)
+        #   - Crosses (se križati vmes - 0********)
+        # 
+        # DE-9IM maska '1*T***T**' pomeni:
+        #   - Interior(A) ∩ Interior(B) = 1-dimenzionalen (linijski presek - prekrivanje segmentov)
+        #   - Interior(A) ∩ Boundary(B) = True (ena cesta seka rob druge vmes)
+        # To zajame obe nedovoljeni situaciji.
+        
+        # POMEMBNO: Uporabljamo r.geom (geometrija PO snap_to_grid), ne g.wkt (pred snap)!
+        filt = Roads.objects.filter(
+            geom__relate=(r.geom.wkt, '1*T***T**')  # Prekrivanje segmentov ALI križanje vmes
+        ).exclude(id=r.id)
+        
         print(f"Query:{filt.query}")
         exist=filt.exists()
         print(f"Exists {exist}") 
@@ -161,10 +176,14 @@ class RoadsView(BaseDjangoView):
         print(f"Count: {n}")
         print(f"Values: {list(filt)}")
         
-        if exist:         # če obstajajo geometrije, ki se sekajo z novo geometrijo, jo izbrišemo in izpišemo poročilo o napaki
-            print(f"Deleting roads id {r.id}, as it intersects with others")
+        if exist:         # če obstajajo geometrije, ki se prekrivajo ali križajo z novo cesto, jo izbrišemo
+            print(f"Deleting road id {r.id}, as it overlaps or crosses with {n} other road(s)")
             r.delete()
-            return JsonResponse({'ok':False, 'message': f'The road intersects with {n} road/s'}, status=400)
+            return JsonResponse({
+                'ok':False, 
+                'message': f'The road overlaps or crosses with {n} road(s). Roads can only touch at endpoints/nodes.',
+                'data':[]
+            }, status=400)
         
         #create a roads object, from the model Roads
         d=model_to_dict(r)       # pretvori objekt Roads v dictionary, da ga lahko izpišemo v JSON formatu
@@ -177,16 +196,17 @@ class RoadsView(BaseDjangoView):
 
     def update(self, request, id):
         # On update you shoud also check the new geometry: snap it, check if it is valid,
-        #     check if it intersects with others except itself.
+        #     check if it overlaps or crosses with others except itself.
+        #     (touching at endpoints is allowed for road networks)
         
         # The problem here is, if after having updated the geometry, if it is not valid, 
-        #     or interesects with others, you must restore the original geometry.
+        #     or intersects with others, you must restore the original geometry.
         #     This is perfectry possible but we are not going to do it, istead
         #     we are going to use a psycop connection and a raw sql query to
         #     get the snapped geometry as wkb. This demonstrates
         #     some times it is better to know raw sql.
-        l=list(Roads.objects.filter(id=id))    # naredili bomo update road z danim id-jem, torej pridobimo to stavbo iz baze
-        if len(l)==0:                              # če stavba ne obstaja, vrnemo napako
+        l=list(Roads.objects.filter(id=id))    # naredili bomo update road z danim id-jem, torej pridobimo to cesto iz baze
+        if len(l)==0:                              # če cesta ne obstaja, vrnemo napako
             return JsonResponse({'ok':False, "message": f"The road id {id} does not exist", "data":[]}, status=400)
         r=l[0]                                     # r je prvi (z indexom=0) objekt Roads, ki ga dobimo iz baze.
 
@@ -199,8 +219,11 @@ class RoadsView(BaseDjangoView):
             geojson=conversor.get_as_geojson()             # Dobimo GeoJSON predstavitev geometrije
             gc=GeometryChecks(wkb)                         # Ustvarimo objekt gc za preverjanje geometrije
             isValid=gc.is_geometry_valid()                 # Preverimo, ali je geometrija veljavna
-            interesectionIds=gc.check_st_relate('roads_roads','T********', id_to_avoid=id) # Preverimo, ali se geometrija sekajo z drugimi geometrijami
-            thereAre = gc.are_there_related_ids()          # vrne True ali False, glede na to ali obstajajo geometrije, ki se sekajo z novo geometrijo
+            
+            # POPRAVEK: Uporabimo masko za preverjanje prekrivanja in križanja
+            # '1*T***T**' - prekrivanje segmentov ali križanje vmes (ne dotikanje v vozliščih)
+            interesectionIds=gc.check_st_relate('roads_roads','1*T***T**', id_to_avoid=id) # Preverimo prekrivanje/križanje
+            thereAre = gc.are_there_related_ids()          # vrne True ali False
             
             print(f"Snaped wkt: {newWkt}")
             print(f"Snaped geojson: {geojson}")
@@ -211,20 +234,24 @@ class RoadsView(BaseDjangoView):
 
             if not(isValid):                     # če geometrija ni veljavna, vrnemo napako
                 return JsonResponse({'ok':False, 'message': 'The geometry is not valid after the st_SnapToGrid', 'data':[]}, status=400)   
-            if gc.are_there_related_ids():       # če obstajajo geometrije, ki se sekajo z novo geometrijo, vrnemo napako
-                return JsonResponse({'ok':False, 'message': gc.get_relate_message(), 'data':gc.related_ids}, status=400)   
+            if gc.are_there_related_ids():       # če obstajajo geometrije, ki se prekrivajo/križajo z novo geometrijo, vrnemo napako
+                return JsonResponse({
+                    'ok':False, 
+                    'message': 'The road overlaps or crosses with other road(s). Roads can only touch at endpoints/nodes. ' + gc.get_relate_message(), 
+                    'data':gc.related_ids
+                }, status=400)   
             r.geom=wkb
             r.str_name=request.POST.get('str_name', '')
             r.administrator=request.POST.get('administrator', '')
             r.maintainer=request.POST.get('maintainer', '')
             polyGeos=GEOSGeometry(wkb)
-            r.length=polyGeos.length                  # izračunamo površino nove geometrije
+            r.length=polyGeos.length                  # izračunamo dolžino nove geometrije
             r.save()
             d=model_to_dict(r)
             d['geom']=conversor.get_as_wkt()#snaped version
         else:                                     # če v zahtevi nimamo geometrije, vrnemo napako
-            return JsonResponse({'ok':False, 'message': 'The geometry mandartory', 'data':[]}, status=400)
-             # če je geometrija veljavna, izpišemo sporočilo o uspehu in vrnemo podatke o stavbi
+            return JsonResponse({'ok':False, 'message': 'The geometry is mandatory', 'data':[]}, status=400)
+             # če je geometrija veljavna, izpišemo sporočilo o uspehu in vrnemo podatke o cesti
         return JsonResponse({'ok':True, 'message': "Road updated", 'data':[d]}, status=200) 
 
 
@@ -246,7 +273,7 @@ class RoadsView(BaseDjangoView):
     # Ta knjižnica je v direktoriju core/myLib/geometryTools.py
     #
     # Malo drugače deluje kot zgornji insert!
-    # Pri insert smo stavbo vpisali v bazo, potem pa smo jo posodobili, da smo dobili geometrijo, ki je bila snapana na mrežo.
+    # Pri insert smo cesto vpisali v bazo, potem pa smo jo posodobili, da smo dobili geometrijo, ki je bila snapana na mrežo.
     # Tu pa najprej pretvorimo geometrijo v WKB format, iz zahteve dobimo geometrijo v WKT formatu,...
     # potem pa jo snapamo na mrežo in preverimo geometrijske podatke.
     # in šele nato jo vpišemo v bazo.
@@ -262,27 +289,34 @@ class RoadsView(BaseDjangoView):
             wkb=conversor.set_wkt_from_text(originalWkt) # WKT spretvorimo v WKB format
             gc=GeometryChecks(wkb)                       # Ustvarimo objekt gc za preverjanje geometrijskih podatkov
             isValid=gc.is_geometry_valid()               # Preverimo, ali je geometrija veljavna
-            gc.check_st_relate('roads_roads','T********')    # Preverimo, ali se geometrija sekajo z drugimi geometrijami
+            
+            # POPRAVEK: Uporabimo masko za preverjanje prekrivanja in križanja
+            # '1*T***T**' - prekrivanje segmentov ali križanje vmes (ne dotikanje v vozliščih)
+            gc.check_st_relate('roads_roads','1*T***T**')    # Preverimo prekrivanje/križanje
             print(gc.get_relate_message())                           # izpišemo sporočilo o napaki, če obstaja 
 
             if not(isValid):    # če geometrija ni veljavna, vrnemo napako
                 return JsonResponse({'ok':False, 'message': 'The geometry is not valid after the st_SnapToGrid', 'data':[]}, status=400)   
-            if gc.are_there_related_ids():    # če obstajajo geometrijske geometrija, ki se sekajo z novo geometrijo, vrnemo napako
-                return JsonResponse({'ok':False, 'message': gc.get_relate_message(), 'data':gc.related_ids}, status=400)   
+            if gc.are_there_related_ids():    # če obstajajo geometrije, ki se prekrivajo/križajo z novo geometrijo, vrnemo napako
+                return JsonResponse({
+                    'ok':False, 
+                    'message': 'The road overlaps or crosses with other road(s). Roads can only touch at endpoints/nodes. ' + gc.get_relate_message(), 
+                    'data':gc.related_ids
+                }, status=400)   
             
             r=Roads()            # Ustvarimo nov objekt Roads
             r.geom=wkb               # nastavimo geometrijo na WKB format, wkt pretvorimo v wkb format
             r.str_name=request.POST.get('str_name', '')   # iz POST zahteve izluščimo street name
             r.administrator=request.POST.get('administrator', '')   # iz POST zahteve izluščimo upravljalca ceste
             r.maintainer=request.POST.get('maintainer', '')   # iz POST zahteve izluščimo vzdrževalca ceste
-            r.length=round(r.geom.length, 2)                                  # izračunamo površino nove geometrije
+            r.length=round(r.geom.length, 2)                                  # izračunamo dolžino nove geometrije
             r.save()                                            # shranimo objekt Roads v bazo
             d=model_to_dict(r)
             d['geom']=r.geom.wkt
         else:                       # če v zahtevi nimamo geometrijo, vrnemo napako            
-            return JsonResponse({'ok':False, 'message': 'The geometry mandartory', 'data':[]}, status=400)
-        # če je geometrija veljavna, izpišemo sporočilo o uspehu in vrnemo podatke o stavbi
-        return JsonResponse({'ok':True, 'message': "Roads Inserted", 'data':[d]}, status=200)  
+            return JsonResponse({'ok':False, 'message': 'The geometry is mandatory', 'data':[]}, status=400)
+        # če je geometrija veljavna, izpišemo sporočilo o uspehu in vrnemo podatke o cesti
+        return JsonResponse({'ok':True, 'message': "Road inserted", 'data':[d]}, status=200)  
 
 
 
@@ -298,4 +332,3 @@ class RoadsModelViewSet(viewsets.ModelViewSet):
     queryset = Roads.objects.all().order_by('id')  # izpis na front-endu bo urejen po id-ju
     serializer_class = RoadsSerializer           
     permission_classes = [permissions.AllowAny]
-                                

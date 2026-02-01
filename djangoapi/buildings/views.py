@@ -135,7 +135,7 @@ class BuildingsView(LoginRequiredMixin, BaseDjangoView):
 
         #create a filter to get all the geometries which interiors intersects,
         #but excluding the one just created
-        filt=Buildings.objects.filter(geom__relate=(g.wkt,'T********')).exclude(id=b.id)
+        filt=Buildings.objects.filter(geom__relate=(b.geom.wkt,'T********')).exclude(id=b.id)
         print(f"Query:{filt.query}")
         exist=filt.exists()
         print(f"Exists {exist}") 
