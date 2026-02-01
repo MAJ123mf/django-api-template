@@ -17,12 +17,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 EPSG_FOR_GEOMETRIES=int(os.getenv('EPSG_FOR_GEOMETRIES',4326))
 ST_SNAP_PRECISION=float(os.getenv('ST_SNAP_PRECISION',0.001))
 MAX_NUMBER_OF_RETRIEVED_ROWS=int(os.getenv('MAX_NUMBER_OF_RETRIEVED_ROWS',1000))
+# BASE_URL = os.getenv('BASE_URL', 'http://localhost:8000')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY','DKLSJGHFHF654165464kasdjhadkgf')
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY','DKLSJGHFHF654165464kasdjhadkgf')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 REMOTE_DEBUG = False
@@ -52,8 +53,6 @@ INSTALLED_APPS = [
     'core',
     'codelist',
     'buildings',
-    'flowers',
-    'smartcities',
     'parcels',
     'addresses',
     'roads',
@@ -75,14 +74,14 @@ if DEBUG:
     # CORS_ALLOW_ALL_ORIGINS=True
 
     CORS_ALLOWED_ORIGINS = [
-    "http://10.32.52.147:4200",    
-    "http://10.32.52.147:5173",
+    "http://192.168.0.39:4200",    
+    "http://192.168.0.39:5173",
     ]
 
     CORS_ALLOW_CREDENTIALS = True
 
     # CSRF_TRUSTED_ORIGINS = [ 
-    #    "http://10.32.52.147:4200", 
+    #    "http://192.168.0.39:4200", 
     # ] 
     
     # SESSION_COOKIE_SAMESITE = 'None' 
@@ -122,7 +121,7 @@ DATABASES = {
         'NAME': os.getenv('POSTGRES_DB'),
         'USER': os.getenv('POSTGRES_USER'),
         'PASSWORD': os.getenv('POSTGRES_PASSWORD'),
-        'HOST': os.getenv('POSTGRES_HOST', '10.32.52.147'),
+        'HOST': os.getenv('POSTGRES_HOST', '192.168.0.39'),
         'PORT': os.getenv('POSTGRES_PORT', '5440'),
         'OPTIONS': {
             'options': '-c search_path=public',

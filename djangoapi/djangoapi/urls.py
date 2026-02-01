@@ -27,11 +27,11 @@ from core.views import custom_logout_view
 
 schema_view = get_schema_view(
    openapi.Info(
-      title="Universitat Politècnica de València",
+      title="GeoSG",
       default_version='v1',
       description="Django API template",
       terms_of_service="https://www.google.com/policies/terms/",
-      contact=openapi.Contact(email="joamona@cgf.upv.es"),
+      contact=openapi.Contact(email="maj.capelnik@gmail.com"),
       license=openapi.License(name="GPL License"),
    ),
    public=True,
@@ -52,8 +52,6 @@ urlpatterns = [
     path('codelist/', include('codelist.urls')),
     path('core/', include('core.urls')),
     path('buildings/', include('buildings.urls')),
-    path('flowers/', include('flowers.urls')),
-    path('smartcities/', include('smartcities.urls')),
     path('parcels/', include('parcels.urls')),
     path('roads/', include('roads.urls')),
     path('addresses/', include('addresses.urls')),

@@ -128,11 +128,10 @@ class RoadsView(BaseDjangoView):
         print(f"Original geometry: {g}")
 
         str_name = request.POST.get('str_name','') 
-        administrator = request.POST.get('str_name','') 
-        maintainer = request.POST.get('str_name','') 
-        str_name = request.POST.get('str_name','') 
+        administrator = request.POST.get('administrator','') 
+        maintainer = request.POST.get('maintainer','')
 
-        r=Roads(st_name=str_name, administrator=administrator, maintainer=maintainer, length=g.length, geom=g)
+        r=Roads(str_name=str_name, administrator=administrator, maintainer=maintainer, length=g.length, geom=g)
         r.save()
         print(f"Road geometry inserted id: {r.id}")
 
@@ -154,7 +153,7 @@ class RoadsView(BaseDjangoView):
 
         #create a filter to get all the geometries which interiors intersects,
         #but excluding the one just created
-        filt=Roads.objects.filter(geom__relate=(g.wkt,'T********')).exclude(id=b.id)   # te filtre že poznamo iz prejšnjih vaj
+        filt=Roads.objects.filter(geom__relate=(g.wkt,'T********')).exclude(id=r.id)   # te filtre že poznamo iz prejšnjih vaj
         print(f"Query:{filt.query}")
         exist=filt.exists()
         print(f"Exists {exist}") 
@@ -231,7 +230,7 @@ class RoadsView(BaseDjangoView):
 
 
 
-    def delete(self, id):
+    def delete(self, request, id):
         l=list(Roads.objects.filter(id=id))
         if len(l)==0:
             return JsonResponse({'ok':False, "message": f"The road id {id} does not exist", "data":[]}, status=400)

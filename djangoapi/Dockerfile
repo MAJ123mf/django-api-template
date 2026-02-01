@@ -3,11 +3,10 @@ FROM python:3.12-alpine3.21
 
 # Proxy za build proces
 
-
-ARG HTTP_PROXY=HTTP://proxy.gov.si:80
-ARG HTTPS_PROXY=http://proxy.gov.si:80
-ENV HTTP_PROXY=${HTTP_PROXY}
-ENV HTTPS_PROXY=${HTTPS_PROXY} 
+# ARG HTTP_PROXY=HTTP://proxy.gov.si:80
+# ARG HTTPS_PROXY=http://proxy.gov.si:80
+# ENV HTTP_PROXY=${HTTP_PROXY}
+# ENV HTTPS_PROXY=${HTTPS_PROXY} 
 
 # ARG USER_ID sets the USER_ID variable in the Dockerfile, 
 #    reading the value from the USER_ID arg variable.
