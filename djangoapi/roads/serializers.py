@@ -7,7 +7,7 @@ from django.contrib.gis.geos import GEOSGeometry
 
 class RoadsSerializer(GeoModelSerializer):
     check_geometry_is_valid = True  # preveri, če je geometrija veljavna: ne seka sama sebe in je zaprta
-    matrix9IM = 'T********'  # matrika 9IM za odnos geometrij: 'T********' = notranjost seka
+    matrix9IM = '1*T***T**'  # matrika 9IM za odnos geometrij: 'T********' = notranjost seka
     geoms_as_wkt = True  # če je True, serializer pričakuje geometrije v WKT formatu. Če je False, v geojson formatu
     check_st_relation = True  # če mora biti nova geometrija preverjena glede na
             # druge geometrije v tabeli glede na matriko9IM. Če ima katera koli geometrija
@@ -53,5 +53,6 @@ class RoadsSerializer(GeoModelSerializer):
 
         if not geom.simple:
             raise serializers.ValidationError("Linija (cesta) ne sme sekati sama sebe.")
+
 
         return value  # vrnemo originalni value, ker bo shranjen v modelu
