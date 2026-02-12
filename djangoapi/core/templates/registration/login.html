@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Initialize session form</h2>
+<h2>Za informacije o Django servisih je potrebna prijava!</h2>
 <br>
 <form method="post">
     {% csrf_token %}
     {{ form.as_p }}
-    <!--<input type="hidden" name="next" value="/admin/">-->
+    <input type="hidden" name="next" value="{{ next|default:'/swagger/' }}">
     <button class="btn btn-primary" type="submit">Login</button>
 </form>
 {% endblock %}
