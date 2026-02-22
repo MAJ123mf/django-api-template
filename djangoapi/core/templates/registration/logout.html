@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>¿Estás seguro de que deseas cerrar sesión?</h2>
+<h2>Si prepričan da želiš zapustiti sejo?</h2>
 
 <form method="post" action="{% url 'logout' %}">
     {% csrf_token %}
-    <button type="submit">Cerrar sesión</button>
+    <button type="submit">Zapusti sejo</button>
 </form>
 
-<a href="{% url 'login' %}">Iniciar sesión nuevamente</a>
+<a href="{% url 'login' %}">Ponovno se prijavite!</a>
 {% endblock %}

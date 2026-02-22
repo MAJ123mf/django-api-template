@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     'addresses',
     'roads',
     'export',
+    'import_layers',
     ]
 
 MIDDLEWARE = [
@@ -66,6 +67,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     # 'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'core.middleware.ssl_cert_auth.SSLCertificateMiddleware', # dodano za preverjanje SSL certifikatov
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -76,6 +78,7 @@ if DEBUG:
     CORS_ALLOWED_ORIGINS = [
     "http://192.168.0.39:4200",    
     "http://192.168.0.39:5173",
+    "https://192.168.0.39:4200",  
     ]
 
     CORS_ALLOW_CREDENTIALS = True

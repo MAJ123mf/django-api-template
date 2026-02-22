@@ -55,5 +55,6 @@ urlpatterns = [
     path('parcels/', include('parcels.urls')),
     path('roads/', include('roads.urls')),
     path('addresses/', include('addresses.urls')),
-    path("export/", include("export.urls"))
+    path("export/", include("export.urls")),
+    path('import_layers/', include('import_layers.urls'))
 ]
