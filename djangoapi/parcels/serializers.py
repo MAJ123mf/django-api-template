@@ -25,36 +25,25 @@ class ParcelsSerializer(GeoModelSerializer):
                     # dodajte tukaj ostale polja modela, ki jih želite serializirati
                     # in ki niso v GeoModelSerializer
 
-    
+    def create(self, validated_data):
+        geom = validated_data.get('geom')
+        if geom:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT ST_Area(%s)", [geom])
+                row = cursor.fetchone()
+                validated_data['area'] = round(row[0], 2) if row else 0
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        geom = validated_data.get('geom')
+        if geom:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT ST_Area(%s)", [geom])
+                row = cursor.fetchone()
+                validated_data['area'] = round(row[0], 2) if row else 0
+        return super().update(instance, validated_data)                    
 
 
-def validate_geom(self, value):
-    print('🔍 validate_geom, child: preverjam veljavnost geometrije')
-
-    # Poskusi pretvoriti string v geometrijski objekt
-    try:
-        geom = GEOSGeometry(value)
-    except Exception as e:
-        raise serializers.ValidationError(f"❌ Napaka pri parsiranju geometrije: {e}")
-
-    # 1. Preveri, ali je veljavna
-    if not geom.valid:
-        raise serializers.ValidationError("❌ Geometrija ni veljavna (morda seka samo sebe ali ni zaprta).")
-
-    # 2. Preveri, ali seka druge parcele (razen sebe)
-    conflicting_parcels = Parcels.objects.filter(geom__intersects=geom).exclude(id=self.instance.id if self.instance else None)
-
-    if conflicting_parcels.exists():
-        conflicting_ids = conflicting_parcels.values_list('id', flat=True)
-        raise serializers.ValidationError({"ok": False, "message": f"Geometrija se seka z obstoječimi parcelami: {conflicting_ids}"})
-        
-    self.area = geom.area
-    return geom
-
-def update(self, instance, validated_data):
-    if 'geom' in validated_data and hasattr(self, 'area'):
-        validated_data['area'] = self.area
-    return super().update(instance, validated_data)
         
 class ParcelsOwnersSerializer(serializers.ModelSerializer):
     class Meta:
