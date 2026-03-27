@@ -6,45 +6,42 @@ from django.contrib.gis.geos import GEOSGeometry
 
 
 class RoadsSerializer(GeoModelSerializer):
-    check_geometry_is_valid = True  # preveri, če je geometrija veljavna: ne seka sama sebe in je zaprta
-    matrix9IM = '1*T***T**'  # matrika 9IM za odnos geometrij: 'T********' = notranjost seka
-    geoms_as_wkt = True  # če je True, serializer pričakuje geometrije v WKT formatu. Če je False, v geojson formatu
-    check_st_relation = True  # če mora biti nova geometrija preverjena glede na
-            # druge geometrije v tabeli glede na matriko9IM. Če ima katera koli geometrija
-            # odnos z novo geometrijo, nova geometrija ni shranjena
-            # in se sproži napaka pri validaciji, z id-ji geometrij, ki imajo odnos
+    check_geometry_is_valid = True
+    matrix9IM = '1*T***T**'
+    geoms_as_wkt = True
+    check_st_relation = True
 
     class Meta:
         model = Roads
         fields = ['id', 'geom', 'geom_geojson', 'geom_wkt', 'str_name', 'administrator', 'maintainer', 'length']
-                    # da ima model geometrijo \textit{geom}.
-                    # dodajte tukaj ostale polja modela, ki jih želite serializirati
-                    # in ki niso v GeoModelSerializer
 
     def create(self, validated_data):
-        geometry = validated_data.get('geom')
+        geom_wkb = validated_data.get('geom')
         instance = super().create(validated_data)
-        if geometry:
-            print(f"Izračunana dolžina (create): {geometry.length}")
-            instance.length = geometry.length
+        if geom_wkb:
+            geom = GEOSGeometry(geom_wkb)
+            print(f"Izračunana dolžina (create): {geom.length}")
+            instance.length = round(geom.length, 2)
             instance.save()
         return instance
 
     def update(self, instance, validated_data):
-        geometry = validated_data.get('geom', instance.geom)
+        geom_wkb = validated_data.get('geom', None)
         instance = super().update(instance, validated_data)
-        if geometry:
-            print(f"Izračunana dolžina (update): {geometry.length}")
-            instance.length = geometry.length
+        if geom_wkb:
+            geom = GEOSGeometry(geom_wkb)
+            print(f"Izračunana dolžina (update): {geom.length}")
+            instance.length = round(geom.length, 2)
             instance.save()
         return instance
 
     def validate_geom(self, value):
-        """
-        Preveri, da linija (cesta) ne seka sama sebe.
-        """
+        # Najprej pokliči parent validacijo
+        value = super().validate_geom(value)
+
+        # Nato preveri tip in veljavnost geometrije
         try:
-            geom = GEOSGeometry(value.wkt)  # Uporabimo WKT za zanesljivo pretvorbo
+            geom = GEOSGeometry(value)
         except Exception:
             raise serializers.ValidationError("Neveljavna geometrija.")
 
@@ -54,4 +51,4 @@ class RoadsSerializer(GeoModelSerializer):
         if not geom.simple:
             raise serializers.ValidationError("Linija (cesta) ne sme sekati sama sebe.")
 
-        return value  # vrnemo originalni value, ker bo shranjen v modelu
+        return value
