@@ -19,11 +19,11 @@ from django.http import JsonResponse
 
 def custom_logout_view(request):
     logout(request)
-    return redirect("/accounts/login/")  # O a donde desees redirigir después del logout
-
-
+    return redirect("/accounts/login/")  # ko se odjaviš, te preusmeri na login stran
+    
 def notLoggedIn(request):
-    return JsonResponse({"ok":False,"message": "You are not logged in", "data":[]})
+    next_url = request.GET.get('next', '/swagger/')   # če nisi prijavljen, te preusmeri na login stran
+    return redirect(f'/accounts/login/?next={next_url}')  
 
 
 class HelloWord(View):
