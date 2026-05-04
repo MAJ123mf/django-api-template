@@ -81,7 +81,7 @@ class ParcelsView(BaseDjangoView):
     def selectone(self, id):                        # metoda selectone je definirana v razredu BaseDjangoView 
         l=list(Parcels.objects.filter(id=id))     # l je seznam objektov Parcels, ki jih dobimo iz baze
         if len(l)==0:                               # če seznam l nima elementov, to pomeni, da objekt Parcelss z id-jem id ne obstaja
-            return JsonResponse({'ok':False, "message": f"The parcel id {id} does not exist", "data":[]}, status=400)
+            return JsonResponse({'ok':False, "message": f"The parcel id {id} does not exist", "data":[]}, status=404)
         b=l[0]                                      # b je prvi element seznama l, ki je objekt Parcels
         d=model_to_dict(b)                          # naredi dictionary d iz objekta Parcelss
         d['geom']=b.geom.wkt                        # b.geom.wkt pretvori Poligon stavbe v WKT (Well Known Text) format, ki je primeren za izpis
@@ -122,7 +122,7 @@ class ParcelsView(BaseDjangoView):
             return JsonResponse({'ok':False, 'message': 'The geometry is mandartory', 'data':[], 'post_data': dict(request.POST) },  status=400)
         
         #Creates the geometry
-        g=GEOSGeometry(request.POST.get('geom',''), srid=EPSG_FOR_GEOMETRIES)   # EPSG 25830 zamenjan z WGS84 4326
+        g=GEOSGeometry(request.POST.get('geom',''), srid=EPSG_FOR_GEOMETRIES)   # EPSG 3794 zamenjan z WGS84 4326
         #print the representation of the object
         print(f"Original geometry: {g}")
 
@@ -137,7 +137,7 @@ class ParcelsView(BaseDjangoView):
         #Now we get a new object with the new geometry to perform the checks
         b=Parcels.objects.get(id=b.id)           # ponovno preberemo objekt Parcels iz baze, da dobimo novo geometrijo
         print('Snapped geometry',b.geom.wkt)       # pretvori geometrijo v WKT format in jo izpiše
-        #bGeos=GEOSGeometry(b.geom.wkt, srid=25830)
+        #bGeos=GEOSGeometry(b.geom.wkt, srid=3794)
         #valid=bGeos.valid
         #b.geom is a GEOSGeometry object, so we can use it directly
         valid=b.geom.valid
@@ -145,7 +145,7 @@ class ParcelsView(BaseDjangoView):
         if not valid:
             print(f"Deleting invalid geometry {b.id}")   # če geometrija ni veljavna, jo izbrišemo
             b.delete()
-            return JsonResponse({'ok':False, 'message': 'The Parcel geometry is not valid after the st_SnapToGrid', 'data':[]}, status=400)   
+            return JsonResponse({'ok':False, 'message': 'The Parcel geometry is not valid after the st_SnapToGrid', 'data':[]}, status=422)
 
         #create a filter to get all the geometries which interiors intersects,
         #but excluding the one just created
@@ -160,15 +160,12 @@ class ParcelsView(BaseDjangoView):
         if exist:         # če obstajajo geometrije, ki se sekajo z novo geometrijo, jo izbrišemo in izpišemo poročilo o napaki
             print(f"Deleting parcels id {b.id}, as it intersects with others")
             b.delete()
-            return JsonResponse({'ok':False, 'message': f'The parcel intersects with {n} parcel/s'}, status=400)
+            return JsonResponse({'ok':False, 'message': f'The parcel intersects with {n} parcel/s'}, status=409)
         
         #create a parcels object, from the model Parcels
         d=model_to_dict(b)       # pretvori objekt Parcels v dictionary, da ga lahko izpišemo v JSON formatu
         d['geom']=b.geom.wkt
         return JsonResponse({'ok':True, 'message': 'Parcel data inserted', 'data': [d]}, status=201)
-
-
-
 
 
     def update(self, request, id):
@@ -183,7 +180,7 @@ class ParcelsView(BaseDjangoView):
         #     some times it is better to know raw sql.
         l=list(Parcels.objects.filter(id=id))    # naredili bomo update parcel z danim id-jem, torej pridobimo to stavbo iz baze
         if len(l)==0:                              # če stavba ne obstaja, vrnemo napako
-            return JsonResponse({'ok':False, "message": f"The parcel id {id} does not exist", "data":[]}, status=400)
+            return JsonResponse({'ok':False, "message": f"The parcel id {id} does not exist", "data":[]}, status=404)
         b=l[0]                                     # b je prvi (z indexom=0) objekt Parcels, ki ga dobimo iz baze.
 
         originalWkt=request.POST.get('geom', None)    # iz POST zahteve izluščimo geometrijo
@@ -206,9 +203,9 @@ class ParcelsView(BaseDjangoView):
             print(gc.get_relate_message())
 
             if not(isValid):                     # če geometrija ni veljavna, vrnemo napako
-                return JsonResponse({'ok':False, 'message': 'The geometry is not valid after the st_SnapToGrid', 'data':[]}, status=400)   
+                return JsonResponse({'ok':False, 'message': 'The geometry is not valid after the st_SnapToGrid', 'data':[]}, status=422)
             if gc.are_there_related_ids():       # če obstajajo geometrije, ki se sekajo z novo geometrijo, vrnemo napako
-                return JsonResponse({'ok':False, 'message': gc.get_relate_message(), 'data':gc.related_ids}, status=400)   
+                return JsonResponse({'ok':False, 'message': gc.get_relate_message(), 'data':gc.related_ids}, status=409)
             b.geom=wkb
             b.description=request.POST.get('description', '')
             polyGeos=GEOSGeometry(wkb)
@@ -222,16 +219,13 @@ class ParcelsView(BaseDjangoView):
         return JsonResponse({'ok':True, 'message': "Parcel updated", 'data':[d]}, status=200) 
 
 
-
-
     def delete(self, id):
         l=list(Parcels.objects.filter(id=id))
         if len(l)==0:
-            return JsonResponse({'ok':False, "message": f"The parcel id {id} does not exist", "data":[]}, status=400)
+            return JsonResponse({'ok':False, "message": f"The parcel id {id} does not exist", "data":[]}, status=404)
         b=l[0]
         b.delete()  
         return JsonResponse({'ok':True, "message": f"The parcel id {id} has been deleted", "data":[]}, status=200)
-
 
 
     # Ta medoda je enaka kot insert, samo da uporablja modul geometryTools.py, ki ga je napisal učitelj.
@@ -260,9 +254,9 @@ class ParcelsView(BaseDjangoView):
             print(gc.get_relate_message())                           # izpišemo sporočilo o napaki, če obstaja 
 
             if not(isValid):    # če geometrija ni veljavna, vrnemo napako
-                return JsonResponse({'ok':False, 'message': 'The geometry is not valid after the st_SnapToGrid', 'data':[]}, status=400)   
+                return JsonResponse({'ok':False, 'message': 'The geometry is not valid after the st_SnapToGrid', 'data':[]}, status=422)
             if gc.are_there_related_ids():    # če obstajajo geometrijske geometrija, ki se sekajo z novo geometrijo, vrnemo napako
-                return JsonResponse({'ok':False, 'message': gc.get_relate_message(), 'data':gc.related_ids}, status=400)   
+                return JsonResponse({'ok':False, 'message': gc.get_relate_message(), 'data':gc.related_ids}, status=409)
             
             p=Parcels()            # Ustvarimo nov objekt Parcels
             p.geom=wkb               # nastavimo geometrijo na WKB format, wkt pretvorimo v wkb format
@@ -275,7 +269,7 @@ class ParcelsView(BaseDjangoView):
         else:                       # če v zahtevi nimamo geometrijo, vrnemo napako            
             return JsonResponse({'ok':False, 'message': 'The geometry mandartory', 'data':[]}, status=400)
         # če je geometrija veljavna, izpišemo sporočilo o uspehu in vrnemo podatke o stavbi
-        return JsonResponse({'ok':True, 'message': "Parcels Inserted", 'data':[d]}, status=200)  
+        return JsonResponse({'ok':True, 'message': "Parcels Inserted", 'data':[d]}, status=201)
 
 
     def calculate_area_in_m2(geom):
@@ -283,7 +277,7 @@ class ParcelsView(BaseDjangoView):
             geom.srid = 4326
 
         geom_m = geom.clone()
-        geom_m.transform(25830)
+        geom_m.transform(3794)
         return round(geom_m.area, 2)  
 
 # ---------------------------------------------------------------------------------------------------
