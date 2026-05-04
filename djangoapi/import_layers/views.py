@@ -30,6 +30,7 @@ class ConvertToGeoJSON(APIView):
             500: openapi.Response(description="Napaka pri konverziji")
         }
     )
+    
     def post(self, request):
         uploaded_files = request.FILES.getlist('file')
         if not uploaded_files:
