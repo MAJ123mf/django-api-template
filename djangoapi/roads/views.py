@@ -82,7 +82,7 @@ class RoadsView(BaseDjangoView):
     def selectone(self, id):                        # metoda selectone je definirana v razredu BaseDjangoView 
         l=list(Roads.objects.filter(id=id))     # l je seznam objektov Roads, ki jih dobimo iz baze
         if len(l)==0:                               # če seznam l nima elementov, to pomeni, da objekt Roads z id-jem id ne obstaja
-            return JsonResponse({'ok':False, "message": f"The road id {id} does not exist", "data":[]}, status=400)
+            return JsonResponse({'ok':False, "message": f"The road id {id} does not exist", "data":[]}, status=404)
         b=l[0]                                      # b je prvi element seznama l, ki je objekt Roads
         d=model_to_dict(b)                          # naredi dictionary d iz objekta Roads
         d['geom']=b.geom.wkt                        # b.geom.wkt pretvori Poligon stavbe v WKT (Well Known Text) format, ki je primeren za izpis
@@ -125,7 +125,7 @@ class RoadsView(BaseDjangoView):
             return JsonResponse({'ok':False, 'message': 'The geometry is mandatory', 'data':[], 'post_data': dict(request.POST) },  status=400)
         
         #Creates the geometry
-        g=GEOSGeometry(request.POST.get('geom',''), srid=EPSG_FOR_GEOMETRIES)   # EPSG 25830 zamenjan z WGS84 4326
+        g=GEOSGeometry(request.POST.get('geom',''), srid=EPSG_FOR_GEOMETRIES)   # EPSG 3794 zamenjan z WGS84 4326
         #print the representation of the object
         print(f"Original geometry: {g}")
 
@@ -151,7 +151,7 @@ class RoadsView(BaseDjangoView):
         if not valid:
             print(f"Deleting invalid geometry {r.id}")   # če geometrija ni veljavna, jo izbrišemo
             r.delete()
-            return JsonResponse({'ok':False, 'message': 'The Road geometry is not valid after the st_SnapToGrid', 'data':[]}, status=400)   
+            return JsonResponse({'ok':False, 'message': 'The Road geometry is not valid after the st_SnapToGrid', 'data':[]}, status=422)
 
         # POPRAVEK: Preverjanje prekrivanja in križanja cest
         # Za cestno omrežje je normalno, da se ceste dotikajo v vozliščih (končne točke),
@@ -183,15 +183,12 @@ class RoadsView(BaseDjangoView):
                 'ok':False, 
                 'message': f'The road overlaps or crosses with {n} road(s). Roads can only touch at endpoints/nodes.',
                 'data':[]
-            }, status=400)
+            }, status=409)
         
         #create a roads object, from the model Roads
         d=model_to_dict(r)       # pretvori objekt Roads v dictionary, da ga lahko izpišemo v JSON formatu
         d['geom']=r.geom.wkt
         return JsonResponse({'ok':True, 'message': 'Road data inserted', 'data': [d]}, status=201)
-
-
-
 
 
     def update(self, request, id):
@@ -207,7 +204,7 @@ class RoadsView(BaseDjangoView):
         #     some times it is better to know raw sql.
         l=list(Roads.objects.filter(id=id))    # naredili bomo update road z danim id-jem, torej pridobimo to cesto iz baze
         if len(l)==0:                              # če cesta ne obstaja, vrnemo napako
-            return JsonResponse({'ok':False, "message": f"The road id {id} does not exist", "data":[]}, status=400)
+            return JsonResponse({'ok':False, "message": f"The road id {id} does not exist", "data":[]}, status=404)
         r=l[0]                                     # r je prvi (z indexom=0) objekt Roads, ki ga dobimo iz baze.
 
         originalWkt=request.POST.get('geom', None)    # iz POST zahteve izluščimo geometrijo
@@ -233,13 +230,13 @@ class RoadsView(BaseDjangoView):
             print(gc.get_relate_message())
 
             if not(isValid):                     # če geometrija ni veljavna, vrnemo napako
-                return JsonResponse({'ok':False, 'message': 'The geometry is not valid after the st_SnapToGrid', 'data':[]}, status=400)   
+                return JsonResponse({'ok':False, 'message': 'The geometry is not valid after the st_SnapToGrid', 'data':[]}, status=422)
             if gc.are_there_related_ids():       # če obstajajo geometrije, ki se prekrivajo/križajo z novo geometrijo, vrnemo napako
                 return JsonResponse({
                     'ok':False, 
                     'message': 'The road overlaps or crosses with other road(s). Roads can only touch at endpoints/nodes. ' + gc.get_relate_message(), 
                     'data':gc.related_ids
-                }, status=400)   
+                }, status=409)
             r.geom=wkb
             r.str_name=request.POST.get('str_name', '')
             r.administrator=request.POST.get('administrator', '')
@@ -255,16 +252,13 @@ class RoadsView(BaseDjangoView):
         return JsonResponse({'ok':True, 'message': "Road updated", 'data':[d]}, status=200) 
 
 
-
-
     def delete(self, request, id):
         l=list(Roads.objects.filter(id=id))
         if len(l)==0:
-            return JsonResponse({'ok':False, "message": f"The road id {id} does not exist", "data":[]}, status=400)
+            return JsonResponse({'ok':False, "message": f"The road id {id} does not exist", "data":[]}, status=404)
         b=l[0]
         b.delete()  
         return JsonResponse({'ok':True, "message": f"The road id {id} has been deleted", "data":[]}, status=200)
-
 
 
     # Ta medoda je enaka kot insert, samo da uporablja modul geometryTools.py, ki ga je napisal učitelj.
@@ -296,13 +290,13 @@ class RoadsView(BaseDjangoView):
             print(gc.get_relate_message())                           # izpišemo sporočilo o napaki, če obstaja 
 
             if not(isValid):    # če geometrija ni veljavna, vrnemo napako
-                return JsonResponse({'ok':False, 'message': 'The geometry is not valid after the st_SnapToGrid', 'data':[]}, status=400)   
+                return JsonResponse({'ok':False, 'message': 'The geometry is not valid after the st_SnapToGrid', 'data':[]}, status=422)
             if gc.are_there_related_ids():    # če obstajajo geometrije, ki se prekrivajo/križajo z novo geometrijo, vrnemo napako
                 return JsonResponse({
                     'ok':False, 
                     'message': 'The road overlaps or crosses with other road(s). Roads can only touch at endpoints/nodes. ' + gc.get_relate_message(), 
                     'data':gc.related_ids
-                }, status=400)   
+                }, status=409)
             
             r=Roads()            # Ustvarimo nov objekt Roads
             r.geom=wkb               # nastavimo geometrijo na WKB format, wkt pretvorimo v wkb format
@@ -316,9 +310,7 @@ class RoadsView(BaseDjangoView):
         else:                       # če v zahtevi nimamo geometrijo, vrnemo napako            
             return JsonResponse({'ok':False, 'message': 'The geometry is mandatory', 'data':[]}, status=400)
         # če je geometrija veljavna, izpišemo sporočilo o uspehu in vrnemo podatke o cesti
-        return JsonResponse({'ok':True, 'message': "Road inserted", 'data':[d]}, status=200)  
-
-
+        return JsonResponse({'ok':True, 'message': "Road inserted", 'data':[d]}, status=201)
 
 
 # Create your views here.
