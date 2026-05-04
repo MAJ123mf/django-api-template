@@ -24,17 +24,17 @@ urlpatterns = [
 # Custom RoadsView:
 # 
 # GET /roads/roads_view/selectone/<id>/ - pridobi eno cesto
-# GET /roads/roads_view/selectall/ - pridobi vse ceste
-# POST /roads/roads_view/insert/ - vstavi cesto (način 1)
-# POST /roads/roads_view/insert2/ - vstavi cesto (način 2 z geometryTools)
-# POST /roads/roads_view/update/<id>/ - posodobi cesto
-# POST /roads/roads_view/delete/<id>/ - izbriši cesto
+# GET /roads/roads_view/selectall/      - pridobi vse ceste
+# POST /roads/roads_view/insert/        - vstavi cesto (način 1)
+# POST /roads/roads_view/insert2/       - vstavi cesto (način 2 z geometryTools)
+# POST /roads/roads_view/update/<id>/   - posodobi cesto
+# POST /roads/roads_view/delete/<id>/   - izbriši cesto
 # 
 # REST Framework (RoadsModelViewSet):
 # 
-# GET /roads/roads/ - list() - vse ceste
-# GET /roads/roads/<id>/ - retrieve() - ena cesta
-# POST /roads/roads/ - create() - vstavi
-# PUT /roads/roads/<id>/ - update() - posodobi
-# PATCH /roads/roads/<id>/ - partial_update() - delna posodobitev
-# DELETE /roads/roads/<id>/ - destroy() - izbriši
+# GET /roads/roads/          - list() - vse ceste
+# GET /roads/roads/<id>/     - retrieve() - ena cesta
+# POST /roads/roads/         - create() - vstavi
+# PUT /roads/roads/<id>/     - update() - posodobi
+# PATCH /roads/roads/<id>/   - partial_update() - delna posodobitev
+# DELETE /roads/roads/<id>/  - destroy() - izbriši
