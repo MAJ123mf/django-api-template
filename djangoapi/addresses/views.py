@@ -66,7 +66,7 @@ class AddressesView(LoginRequiredMixin, BaseDjangoView):
     def selectone(self, id):
         l = list(Addresses.objects.filter(id=id))
         if len(l) == 0:
-            return JsonResponse({'ok': False, "message": f"The address id {id} does not exist", "data": []}, status=200)
+            return JsonResponse({'ok': False, "message": f"The address id {id} does not exist", "data": []}, status=404)
         a = l[0]
         d = model_to_dict(a)
         d['geom'] = a.geom.wkt
@@ -141,7 +141,7 @@ class AddressesView(LoginRequiredMixin, BaseDjangoView):
         if not valid:
             print(f"Deleting invalid geometry {a.id}")
             a.delete()
-            return JsonResponse({'ok': False, 'message': 'The geometry is not valid after the st_SnapToGrid', 'data': []}, status=200)   
+            return JsonResponse({'ok': False, 'message': 'The geometry is not valid after the st_SnapToGrid', 'data': []}, status=422)
 
         # Check if there's another address at the same location (overlapping points)
         filt = Addresses.objects.filter(geom__equals=a.geom).exclude(id=a.id)
@@ -149,14 +149,14 @@ class AddressesView(LoginRequiredMixin, BaseDjangoView):
             n = filt.count()
             print(f"Deleting the address id {a.id}, as it overlaps with {n} other address(es)")
             a.delete()
-            return JsonResponse({'ok': False, 'message': f'The address overlaps with {n} existing address(es) at the same location'}, status=200)
+            return JsonResponse({'ok': False, 'message': f'The address overlaps with {n} existing address(es) at the same location'}, status=409)
 
         # Check if the point is within a building
         buildings_containing = Buildings.objects.filter(geom__contains=a.geom)
         if not buildings_containing.exists():
             print(f"Deleting the address id {a.id}, as it is not within any building")
             a.delete()
-            return JsonResponse({'ok': False, 'message': 'The address must be within a building polygon'}, status=200)
+            return JsonResponse({'ok': False, 'message': 'The address must be within a building polygon'}, status=422)
         
         # Create an address object from the model Addresses
         d = model_to_dict(a)
@@ -172,7 +172,7 @@ class AddressesView(LoginRequiredMixin, BaseDjangoView):
         """
         l = list(Addresses.objects.filter(id=id))
         if len(l) == 0:
-            return JsonResponse({'ok': False, "message": f"The address id {id} does not exist", "data": []}, status=200)
+            return JsonResponse({'ok': False, "message": f"The address id {id} does not exist", "data": []}, status=404)
         a = l[0]
 
         originalWkt = request.POST.get('geom', None)
@@ -190,7 +190,7 @@ class AddressesView(LoginRequiredMixin, BaseDjangoView):
             print(f"Snapped is valid: {isValid}")
 
             if not isValid:
-                return JsonResponse({'ok': False, 'message': 'The geometry is not valid after the st_SnapToGrid', 'data': []}, status=200)   
+                return JsonResponse({'ok': False, 'message': 'The geometry is not valid after the st_SnapToGrid', 'data': []}, status=422)
             
             # Check geometry type
             polyGeos = GEOSGeometry(wkb)
@@ -201,12 +201,12 @@ class AddressesView(LoginRequiredMixin, BaseDjangoView):
             overlapping = Addresses.objects.filter(geom__equals=polyGeos).exclude(id=id)
             if overlapping.exists():
                 n = overlapping.count()
-                return JsonResponse({'ok': False, 'message': f'The address overlaps with {n} existing address(es) at the same location', 'data': []}, status=200)
+                return JsonResponse({'ok': False, 'message': f'The address overlaps with {n} existing address(es) at the same location', 'data': []}, status=409)
 
             # Check if the point is within a building
             buildings_containing = Buildings.objects.filter(geom__contains=polyGeos)
             if not buildings_containing.exists():
-                return JsonResponse({'ok': False, 'message': 'The address must be within a building polygon', 'data': []}, status=200)
+                return JsonResponse({'ok': False, 'message': 'The address must be within a building polygon', 'data': []}, status=422)
 
             # Update the address
             a.geom = wkb
@@ -220,14 +220,14 @@ class AddressesView(LoginRequiredMixin, BaseDjangoView):
             d = model_to_dict(a)
             d['geom'] = conversor.get_as_wkt()  # snapped version
         else:
-            return JsonResponse({'ok': False, 'message': 'Update. The geometry is mandatory', 'data': []}, status=200)
+            return JsonResponse({'ok': False, 'message': 'Update. The geometry is mandatory', 'data': []}, status=400)
         
-        return JsonResponse({'ok': True, 'message': "Address updated", 'data': [d]}, status=200)   
+        return JsonResponse({'ok': True, 'message': "Address updated", 'data': [d]}, status=200)
 
     def delete(self, request, id):
         l = list(Addresses.objects.filter(id=id))
         if len(l) == 0:
-            return JsonResponse({'ok': False, "message": f"The address id {id} does not exist", "data": []}, status=200)
+            return JsonResponse({'ok': False, "message": f"The address id {id} does not exist", "data": []}, status=404)
         a = l[0]
         a.delete()  
         return JsonResponse({'ok': True, "message": f"The address id {id} has been deleted", "data": []}, status=200)
@@ -246,7 +246,7 @@ class AddressesView(LoginRequiredMixin, BaseDjangoView):
             isValid = gc.is_geometry_valid()
 
             if not isValid:
-                return JsonResponse({'ok': False, 'message': 'The geometry is not valid after the st_SnapToGrid', 'data': []}, status=400)   
+                return JsonResponse({'ok': False, 'message': 'The geometry is not valid after the st_SnapToGrid', 'data': []}, status=422)
             
             # Check geometry type
             polyGeos = GEOSGeometry(wkb)
@@ -257,12 +257,12 @@ class AddressesView(LoginRequiredMixin, BaseDjangoView):
             overlapping = Addresses.objects.filter(geom__equals=polyGeos)
             if overlapping.exists():
                 n = overlapping.count()
-                return JsonResponse({'ok': False, 'message': f'The address overlaps with {n} existing address(es) at the same location', 'data': []}, status=400)
+                return JsonResponse({'ok': False, 'message': f'The address overlaps with {n} existing address(es) at the same location', 'data': []}, status=409)
 
             # Check if the point is within a building
             buildings_containing = Buildings.objects.filter(geom__contains=polyGeos)
             if not buildings_containing.exists():
-                return JsonResponse({'ok': False, 'message': 'The address must be within a building polygon', 'data': []}, status=400)
+                return JsonResponse({'ok': False, 'message': 'The address must be within a building polygon', 'data': []}, status=422)
             
             a = Addresses()
             a.geom = wkb
@@ -276,9 +276,9 @@ class AddressesView(LoginRequiredMixin, BaseDjangoView):
             d = model_to_dict(a)
             d['geom'] = a.geom.wkt
         else:
-            return JsonResponse({'ok': False, 'message': 'The geometry is mandatory', 'data': []}, status=200)
+            return JsonResponse({'ok': False, 'message': 'The geometry is mandatory', 'data': []}, status=400)
 
-        return JsonResponse({'ok': True, 'message': "Address Inserted", 'data': [d]}, status=200)   
+        return JsonResponse({'ok': True, 'message': "Address Inserted", 'data': [d]}, status=201)
 
 
 class AddressesModelViewSet(viewsets.ModelViewSet):
