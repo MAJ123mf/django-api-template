@@ -72,7 +72,7 @@ class BuildingsView(LoginRequiredMixin, BaseDjangoView):
     def selectone(self, id):
         l=list(Buildings.objects.filter(id=id))
         if len(l)==0:
-            return JsonResponse({'ok':False, "message": f"The building id {id} does not exist", "data":[]}, status=200)
+            return JsonResponse({'ok':False, "message": f"The building id {id} does not exist", "data":[]}, status=404)
         b=l[0]
         d=model_to_dict(b)
         d['geom']=b.geom.wkt
@@ -123,7 +123,7 @@ class BuildingsView(LoginRequiredMixin, BaseDjangoView):
         #Now we get a new object with the new geometry to perform the checks
         b=Buildings.objects.get(id=b.id)
         print('Snapped geometry',b.geom.wkt)
-        #bGeos=GEOSGeometry(b.geom.wkt, srid=25830)
+        #bGeos=GEOSGeometry(b.geom.wkt, srid=3794)
         #valid=bGeos.valid
         #b.geom is a GEOSGeometry object, so we can use it directly
         valid=b.geom.valid
@@ -131,7 +131,7 @@ class BuildingsView(LoginRequiredMixin, BaseDjangoView):
         if not valid:
             print(f"Deleting invalid geometry {b.id}")
             b.delete()
-            return JsonResponse({'ok':False, 'message': 'The geometry is not valid after the st_SnapToGrid', 'data':[]}, status=200)   
+            return JsonResponse({'ok':False, 'message': 'The geometry is not valid after the st_SnapToGrid', 'data':[]}, status=422)
 
         #create a filter to get all the geometries which interiors intersects,
         #but excluding the one just created
@@ -146,7 +146,7 @@ class BuildingsView(LoginRequiredMixin, BaseDjangoView):
         if exist:
             print(f"Deleting de building id {b.id}, as it intersects with others")
             b.delete()
-            return JsonResponse({'ok':False, 'message': f'The building intersects with {n} building/s'}, status=200)
+            return JsonResponse({'ok':False, 'message': f'The building intersects with {n} building/s'}, status=409)
         
         #create a building object, from the model Buildings
         d=model_to_dict(b)
@@ -167,7 +167,7 @@ class BuildingsView(LoginRequiredMixin, BaseDjangoView):
         """
         l=list(Buildings.objects.filter(id=id))
         if len(l)==0:
-            return JsonResponse({'ok':False, "message": f"The building id {id} does not exist", "data":[]}, status=200)
+            return JsonResponse({'ok':False, "message": f"The building id {id} does not exist", "data":[]}, status=404)
         b=l[0]
 
         originalWkt=request.POST.get('geom', None)
@@ -190,9 +190,9 @@ class BuildingsView(LoginRequiredMixin, BaseDjangoView):
             print(gc.get_relate_message())
 
             if not(isValid):
-                return JsonResponse({'ok':False, 'message': 'The geometry is not valid after the st_SnapToGrid', 'data':[]}, status=200)   
+                return JsonResponse({'ok':False, 'message': 'The geometry is not valid after the st_SnapToGrid', 'data':[]}, status=422)
             if gc.are_there_related_ids():
-                return JsonResponse({'ok':False, 'message': gc.get_relate_message(), 'data':gc.related_ids}, status=200)   
+                return JsonResponse({'ok':False, 'message': gc.get_relate_message(), 'data':gc.related_ids}, status=409)
             b.geom=wkb
             b.description=request.POST.get('description', '')
             polyGeos=GEOSGeometry(wkb)
@@ -201,14 +201,14 @@ class BuildingsView(LoginRequiredMixin, BaseDjangoView):
             d=model_to_dict(b)
             d['geom']=conversor.get_as_wkt()#snaped version
         else:
-            return JsonResponse({'ok':False, 'message': 'Update. The geometry is mandartory', 'data':[]}, status=200)
+            return JsonResponse({'ok':False, 'message': 'Update. The geometry is mandartory', 'data':[]}, status=400)
         
-        return JsonResponse({'ok':True, 'message': "Building updated", 'data':[d]}, status=200)   
+        return JsonResponse({'ok':True, 'message': "Building updated", 'data':[d]}, status=200)
 
     def delete(self, request, id):
         l=list(Buildings.objects.filter(id=id))
         if len(l)==0:
-            return JsonResponse({'ok':False, "message": f"The building id {id} does not exist", "data":[]}, status=200)
+            return JsonResponse({'ok':False, "message": f"The building id {id} does not exist", "data":[]}, status=404)
         b=l[0]
         b.delete()  
         return JsonResponse({'ok':True, "message": f"The building id {id} has been deleted", "data":[]}, status=200)
@@ -234,9 +234,9 @@ class BuildingsView(LoginRequiredMixin, BaseDjangoView):
             print(gc.get_relate_message())
 
             if not(isValid):
-                return JsonResponse({'ok':False, 'message': 'The geometry is not valid after the st_SnapToGrid', 'data':[]}, status=400)   
+                return JsonResponse({'ok':False, 'message': 'The geometry is not valid after the st_SnapToGrid', 'data':[]}, status=422)
             if gc.are_there_related_ids():
-                return JsonResponse({'ok':False, 'message': gc.get_relate_message(), 'data':gc.related_ids}, status=400)   
+                return JsonResponse({'ok':False, 'message': gc.get_relate_message(), 'data':gc.related_ids}, status=409)
             
             b=Buildings()
             b.geom=wkb
@@ -246,9 +246,9 @@ class BuildingsView(LoginRequiredMixin, BaseDjangoView):
             d=model_to_dict(b)
             d['geom']=b.geom.wkt
         else:
-            return JsonResponse({'ok':False, 'message': 'The geometry mandartory', 'data':[]}, status=200)
+            return JsonResponse({'ok':False, 'message': 'The geometry mandartory', 'data':[]}, status=400)
 
-        return JsonResponse({'ok':True, 'message': "Building Inserted", 'data':[d]}, status=200)   
+        return JsonResponse({'ok':True, 'message': "Building Inserted", 'data':[d]}, status=201)
 
 
 
