@@ -1,7 +1,12 @@
-from django.contrib import admin
 from django.contrib.gis import admin
 from .models import Addresses
 
-admin.site.register(Addresses, admin.GISModelAdmin)
-
-# Register your models here.
+class AddressesAdmin(admin.GISModelAdmin):
+    gis_widget_kwargs = {
+        'attrs': {
+            'default_lon': 15.0806,
+            'default_lat': 46.5044,
+            'default_zoom': 14,
+        }
+    }
+admin.site.register(Addresses, AddressesAdmin)
