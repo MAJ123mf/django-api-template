@@ -1,54 +1,58 @@
-
 import subprocess
 import os
 import tempfile
 from django.http import FileResponse
 from django.conf import settings
-from django.shortcuts import render
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
-def export_geopackage(request):
-    """
-    Ustvari GeoPackage s štirimi sloji (parcele, stavbe, ceste, naslovi)
-    in ga ponudi za prenos uporabniku.
-    """
 
-    # Nastavimo povezavo na PostGIS bazo (vzeto iz settings.py)
-    db_conn = (
-        f"PG:dbname={settings.DATABASES['default']['NAME']} "
-        f"user={settings.DATABASES['default']['USER']} "
-        f"password={settings.DATABASES['default']['PASSWORD']} "
-        f"host={settings.DATABASES['default']['HOST']} "
-        f"port={settings.DATABASES['default']['PORT']}"
+class ExportGeoPackage(APIView):
+
+    @swagger_auto_schema(
+        operation_summary="Izvozi GeoPackage",
+        operation_description="Ustvari GeoPackage s štirimi sloji (parcele, stavbe, ceste, naslovi) in ga ponudi za prenos.",
+        responses={
+            200: openapi.Response(description="GeoPackage datoteka"),
+            500: openapi.Response(description="Napaka pri izvozu")
+        }
     )
+    def get(self, request):  # ← get namesto export_geopackage, in zamik znotraj razreda
+        """
+        Ustvari GeoPackage s štirimi sloji (parcele, stavbe, ceste, naslovi)
+        in ga ponudi za prenos uporabniku.
+        """
 
-    # Imena slojev, kot jih imaš v PostGIS (tabela = ime sloja)
-    layers = ["parcels_parcels", "buildings_buildings", "roads_roads", "addresses_addresses"]
+        db_conn = (
+            f"PG:dbname={settings.DATABASES['default']['NAME']} "
+            f"user={settings.DATABASES['default']['USER']} "
+            f"password={settings.DATABASES['default']['PASSWORD']} "
+            f"host={settings.DATABASES['default']['HOST']} "
+            f"port={settings.DATABASES['default']['PORT']}"
+        )
 
-    # Ustvari začasno datoteko
-    tmp = tempfile.NamedTemporaryFile(suffix=".gpkg", delete=False)
-    output_path = tmp.name
+        layers = ["parcels_parcels", "buildings_buildings", "roads_roads", "addresses_addresses"]
 
-    # Če slučajno obstaja, zbrišemo
-    if os.path.exists(output_path):
-        os.remove(output_path)
+        tmp = tempfile.NamedTemporaryFile(suffix=".gpkg", delete=False)
+        output_path = tmp.name
+        tmp.close()  # ← zapri handle preden ogr2ogr piše vanjo
 
-    # Ustvarimo GeoPackage in vanj dodamo vse 4 sloje
-    for i, layer in enumerate(layers):
-        cmd = [
-            "ogr2ogr",
-            "-f", "GPKG",
-            output_path,
-            db_conn,
-            layer,
-        ]
-        if i > 0:
-            cmd += ["-update", "-append"]
+        if os.path.exists(output_path):
+            os.remove(output_path)
 
-        # Reprojeciramo v WGS84 (če želiš)
-        # cmd += ["-t_srs", "EPSG:4326"]
+        for i, layer in enumerate(layers):
+            cmd = [
+                "ogr2ogr",
+                "-f", "GPKG",
+                output_path,
+                db_conn,
+                layer,
+            ]
+            if i > 0:
+                cmd += ["-update", "-append"]
 
-        subprocess.run(cmd, check=True)
+            subprocess.run(cmd, check=True)
 
-    # Pošljemo datoteko uporabniku
-    return FileResponse(open(output_path, "rb"), as_attachment=True, filename="podatki.gpkg")
-
+        return FileResponse(open(output_path, "rb"), as_attachment=True, filename="podatki.gpkg")
