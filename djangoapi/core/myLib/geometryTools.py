@@ -15,7 +15,7 @@ class WkbConversor:
     def set_wkt_from_text(self, geom_text:str)-> str:
         """
         Receives a string, with a geojson, or wkt geometry,
-        and return it in wkt. 
+        and return it in wkb. 
         If the self.st_snap_precision is true the vertices are rounded
         """
         if 'coordinates' in geom_text:
@@ -47,8 +47,7 @@ class WkbConversor:
                     st_setsrid(
                         ST_GeomFromGeoJSON(%s)
                         ,%s
-                    ),
-                    %s
+                    )
             """           
         cursor.execute(q, [geojson, self.epsg_for_geometries, self.st_snap_precision])
         row = cursor.fetchone()
@@ -74,8 +73,7 @@ class WkbConversor:
                     st_setsrid(
                         ST_GeomFromText(%s)
                         ,%s
-                    ),
-                    %s
+                    )
             """               
         cursor.execute(q, [wkt, self.epsg_for_geometries, self.st_snap_precision])
         row = cursor.fetchone()
@@ -87,14 +85,15 @@ class WkbConversor:
         #Ejecuta la función PostGIS ST_GeomFromText para convertir WKT a WKB
         print('set_wkb_from_table')
         if self.snap_to_grid:
-            q=f"""SELECT ST_SNAPTOGRID({geom_field_name})
+            q=f"""SELECT ST_SNAPTOGRID({geom_field_name}, %s)
                   FROM {table_name} WHERE id = %s
                 """
+            cursor.execute(q, [self.st_snap_precision, id_to_select])
         else:
             q=f"""SELECT {geom_field_name}
                   FROM {table_name} WHERE id = %s
                 """             
-        cursor.execute(q, [id_to_select])
+            cursor.execute(q, [id_to_select])
         l = cursor.fetchall()
         if len(l)==0:
             raise Exception(f"No reccord with the id {id_to_select} in the table {table_name}")
@@ -134,11 +133,6 @@ class GeometryChecks:
         self.related_ids = None
         self.requested_relation = None
         self.table_name = None
-
-class GeometryChecks:
-    def __init__(self, wkb: str):
-        self.wkb=wkb
-        self.related_ids = None
 
     def is_geometry_valid(self):
         """Checks if a geometry in geojson is valid."""
@@ -206,3 +200,4 @@ class GeometryChecks:
             return f"The following ids of the table {self.table_name} have the requested  relation ({self.requested_relation}), with the given geometry: {self.related_ids}"
         else:        
             return "There are not geometries with the requested relation"
+
