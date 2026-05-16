@@ -30,53 +30,30 @@ class WkbConversor:
 
     def __set_wkb_from_geojson(self, geojson:str)->str:
         cursor = connection.cursor()
-        #Ejecuta la función PostGIS ST_GeomFromText para convertir WKT a WKB
         print('set_wkb_from_geojson')
         if self.snap_to_grid:
-            q="""SELECT 
-                    ST_SNAPTOGRID(
-                        st_setsrid(
-                            ST_GeomFromGeoJSON(%s)
-                            ,%s
-                        ),
-                        %s
-                    )
-                """
+            q="""SELECT ST_SNAPTOGRID(st_setsrid(ST_GeomFromGeoJSON(%s),%s),%s)"""
+            cursor.execute(q, [geojson, self.epsg_for_geometries, self.st_snap_precision])
         else:
-            q="""SELECT 
-                    st_setsrid(
-                        ST_GeomFromGeoJSON(%s)
-                        ,%s
-                    )
-            """           
-        cursor.execute(q, [geojson, self.epsg_for_geometries, self.st_snap_precision])
+            q="""SELECT st_setsrid(ST_GeomFromGeoJSON(%s),%s)"""
+            cursor.execute(q, [geojson, self.epsg_for_geometries])
         row = cursor.fetchone()
         self.__wkb=row[0]
-        return self.get_as_wkb()  # Esto será el WKB
+        return self.get_as_wkb()
 
     def __set_wkb_from_wkt(self, wkt:str):
         cursor = connection.cursor()
         #Ejecuta la función PostGIS ST_GeomFromText para convertir WKT a WKB
-        print('set_wkb_from_wkt')
+        print('set_wkb_from_wkt')       
+
         if self.snap_to_grid:
-            q="""SELECT 
-                    ST_SNAPTOGRID(
-                        st_setsrid(
-                            ST_GeomFromText(%s)
-                            ,%s
-                        ),
-                        %s
-                    )
-                """
+            q="""SELECT ST_SNAPTOGRID(st_setsrid(ST_GeomFromText(%s),%s),%s)"""
+            cursor.execute(q, [wkt, self.epsg_for_geometries, self.st_snap_precision])
         else:
-            q="""SELECT 
-                    st_setsrid(
-                        ST_GeomFromText(%s)
-                        ,%s
-                    )
-            """               
-        cursor.execute(q, [wkt, self.epsg_for_geometries, self.st_snap_precision])
+            q="""SELECT st_setsrid(ST_GeomFromText(%s),%s)"""
+            cursor.execute(q, [wkt, self.epsg_for_geometries])
         row = cursor.fetchone()
+
         self.__wkb=row[0]
         return self.get_as_wkb() 
          
@@ -144,23 +121,30 @@ class GeometryChecks:
         #row is true or false
         return row[0]
             
+
+
+
+
     def check_st_relate(self, table_name: str, matrix9IM: str, id_to_avoid:int=None)->list:
-        """Checks whether or not exists a geometry wih the relation of the geom with all the geometries in the layer
-            layername using the matrix 9IM. The geom is in geojson format.
-        """
-        
         cursor=connection.cursor()
         if id_to_avoid is None:
-            q=f"""SELECT id FROM {table_name} WHERE ST_relate(geom,%s,%s)"""
-            values=[self.wkb, matrix9IM]
+            q=f"""SELECT id FROM {table_name} 
+                WHERE ST_relate(ST_SnapToGrid(geom, %s), %s, %s)"""
+            values=[ST_SNAP_PRECISION, self.wkb, matrix9IM]
         else:
-            q=f"""SELECT id FROM {table_name} WHERE ST_relate(geom,%s,%s) and id != %s"""
-            values=[self.wkb, matrix9IM, id_to_avoid]
+            q=f"""SELECT id FROM {table_name} 
+                WHERE ST_relate(ST_SnapToGrid(geom, %s), %s, %s) AND id != %s"""
+            values=[ST_SNAP_PRECISION, self.wkb, matrix9IM, id_to_avoid]
+        
         cursor.execute(q, values)
         self.related_ids=cursor.fetchall()
+        print(f'[check_st_relate] related_ids: {self.related_ids}')
         self.requested_relation= f'ST_relate, matrix: {matrix9IM}'
         self.table_name=table_name
-        return self.related_ids  # Devuelve los ids de las geometrías que cumplen la relación
+        return self.related_ids
+
+
+
 
     def check_st_condition(self, table_name: str, st_condition: str, id_to_avoid:int=None)->list:   
         """Checks whether or not exists a geometry wih the condition 
