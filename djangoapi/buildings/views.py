@@ -274,7 +274,7 @@ class BuildingsModelViewSet(viewsets.ModelViewSet):
         -destroy() -> DELETE operation over /buildings/buildings/<id>/. 
                 It will delete the record with the id.
     """
-    queryset = Buildings.objects.all()
+    queryset = Buildings.objects.all().order_by('id')
     serializer_class = BuildingsSerializer#The serializer that will be used to serialize 
                             #the data. and check the data that is sent in the request.
     permission_classes = [permissions.AllowAny]#Any can use it.
