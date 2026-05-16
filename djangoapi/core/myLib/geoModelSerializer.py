@@ -1,4 +1,3 @@
-
 from django.db import connection
 
 from rest_framework import serializers
@@ -26,44 +25,86 @@ class GeoModelSerializer(serializers.ModelSerializer):
     class Meta:
         fields = ['id', 'geom', 'geom_geojson', 'geom_wkt']
 
+
+
     def validate_geom(self, value):
-        """Validates if a geometry in geojson/wkt is valid.
-        If pass all checks, return the wkb value, wich is the 
-        value stored in the database
-        """
         print('validate_geom')
         c=WkbConversor()
         wkb=c.set_wkt_from_text(value)
+        print(f'[validate_geom] type of wkb: {type(wkb)}')
+        print(f'[validate_geom] wkb value: {wkb}')
         gc=GeometryChecks(wkb)
         if self.check_geometry_is_valid:
             if not gc.is_geometry_valid():
                 raise serializers.ValidationError('Invalid geometry. May be self-intersecting or not closed.')
         if self.check_st_relation:
-            #we have to know if we are editing (UPDATE) or inserting (CREATE)
             if self.instance:
-                print("It is an UPDATE. You must remove the current geometry from the checks")
                 gc.check_st_relate(self.get_table_name(),self.matrix9IM, self.instance.id)
                 if gc.are_there_related_ids():
                     raise serializers.ValidationError(gc.get_relate_message())
             else:
-                print("It is a CREATE.")
                 gc.check_st_relate(self.get_table_name(),self.matrix9IM)        
                 if gc.are_there_related_ids():
                     raise serializers.ValidationError(gc.get_relate_message())        
         return wkb
+
+
+
+    def create(self, validated_data):
+        print('[GeoModelSerializer] CREATE called')
+        from django.db import connection
+        geom_wkb = validated_data.pop('geom')
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT ST_SnapToGrid(%s::geometry, 0.01)", [geom_wkb])
+            row = cursor.fetchone()
+            validated_data['geom'] = row[0]
+            print(f'[GeoModelSerializer] geom after snap: {row[0][:50]}')
+        return super().create(validated_data)
+
+
+    def update(self, instance, validated_data):
+        print('[GeoModelSerializer] UPDATE called')
+        if 'geom' in validated_data:
+            geom_wkb = validated_data.pop('geom')
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT ST_SnapToGrid(%s::geometry, 0.01)", [geom_wkb])
+                row = cursor.fetchone()
+                validated_data['geom'] = row[0]
+        return super().update(instance, validated_data)
     
+
     def get_geom_geojson(self, obj):
-        """Obtiene la geometría en formato WKT a partir de WKB usando PostGIS."""
-        # print('get_geom_asgeojson ')
-        return obj.geom.geojson
+        from django.db import connection
+        table_name = self.get_table_name()
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"SELECT ST_AsGeoJSON(geom, 2) FROM {table_name} WHERE id = %s",
+                [obj.id]
+            )
+            row = cursor.fetchone()
+            return row[0] if row else None
     
+
     def get_geom_wkt(self, obj):
-        """Obtiene la geometría en formato WKT a partir de WKB usando PostGIS."""
-        # print('get_geom_wkt')
-        return obj.geom.wkt
+        from django.db import connection
+        table_name = self.get_table_name()
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"SELECT ST_AsText(geom, 2) FROM {table_name} WHERE id = %s",
+                [obj.id]
+            )
+            row = cursor.fetchone()
+            return row[0] if row else None
+        
         
     def get_table_name(self):
         return self.Meta.model._meta.db_table
+
+
+
+
+
+
 
 class GeoModelSerializer2(serializers.ModelSerializer):
     """
@@ -101,6 +142,7 @@ class GeoModelSerializer2(serializers.ModelSerializer):
     def validate_geom(self, value):
         """Validates if a geometry in geojson is valid."""
         print('validate_geom')
+
         geom_binary = self.convert_to_wkb(value)
 
         if self.check_geometry_is_valid:
@@ -114,6 +156,7 @@ class GeoModelSerializer2(serializers.ModelSerializer):
                 table_name = self.get_table_name()
                 raise serializers.ValidationError(f'Invalid geometry. Exist geometries in the layer {table_name} with the relation {self.matrix9IM}. Ids: {r}.')
         return value
+
         
     def get_geom_geojson(self, obj):
         """Obtiene la geometría en formato WKT a partir de WKB usando PostGIS."""
